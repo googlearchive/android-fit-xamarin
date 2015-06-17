@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<resources>
+    <style name="Theme.XamFitTheme" parent="Theme.AppCompat.Light">
+        <item name="colorPrimary">@color/my_blue</item>
+        <item name="colorPrimaryDark">@color/my_dark_blue</item>
+		<!--- <item name="android:textColorPrimary">@color/my_black</item> -->
+    </style>
+
+</resources>
