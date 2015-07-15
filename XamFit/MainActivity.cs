@@ -43,8 +43,7 @@ namespace Google.XamarinSamples.XamFit
 	 */
 	[Activity (Theme = "@style/Theme.XamFitTheme",
 		Label = "XamFit", MainLauncher = true, Icon = "@drawable/icon")]
-	public partial class MainActivity : AppCompatActivity, IGoogleApiClientConnectionCallbacks,
-		IGoogleApiClientOnConnectionFailedListener
+	public partial class MainActivity : AppCompatActivity
 	{
 		const string Tag = "MainActivity";
 
@@ -55,13 +54,14 @@ namespace Google.XamarinSamples.XamFit
 		protected override void OnCreate (Bundle bundle)
 		{
 			base.OnCreate (bundle);
+			SetContentView (Resource.Layout.Main);
 
 			// extract authInProgress from bundle if it's in there
 			if (bundle != null && bundle.ContainsKey ("authInProgress")) {
 				authInProgress = bundle.GetBoolean ("authInProgress");
 			}
 
-			SetContentView (Resource.Layout.Main);
+			BuildApiClient ();
 		}
 
 		/**
@@ -70,13 +70,6 @@ namespace Google.XamarinSamples.XamFit
 		protected override void OnStart ()
 		{
 			base.OnStart ();
-			// Create and connect the Google API client
-			googleApiClient = new GoogleApiClientBuilder (this)
-				.AddApi (FitnessClass.Api)
-				.AddScope (FitnessClass.ScopeActivityRead)
-				.AddConnectionCallbacks (this)
-				.AddOnConnectionFailedListener (this)
-				.Build ();
 			googleApiClient.Connect ();
 		}
 
@@ -106,57 +99,67 @@ namespace Google.XamarinSamples.XamFit
 			}
 
 		}
-	
+
 		protected override void OnSaveInstanceState(Bundle bundle) {
 			bundle.PutBoolean ("authInProgress", authInProgress);
 			base.OnSaveInstanceState(bundle);
 		}
 
 		/**
-		 * Connected successfully to Google Play services
+		 * Build the Google Play Services API client
 		 */
-		public void OnConnected (Android.OS.Bundle connectionHint)
+		private void BuildApiClient ()
 		{
-			if (Log.IsLoggable (Tag, LogPriority.Info)) {
-				Log.Info (Tag, "Connected to the Google API client");
-			}
-			// Get step data from Google Play Services
-			readSteps ();
-		}
-
-		public void OnConnectionSuspended (int cause)
-		{
-			if (Log.IsLoggable (Tag, LogPriority.Info)) {
-				Log.Info (Tag, "Connection suspended");
-			}
-		}
-
-		public void OnConnectionFailed (Android.Gms.Common.ConnectionResult result)
-		{
-			if (Log.IsLoggable (Tag, LogPriority.Info)) {
-				Log.Info (Tag, "Failed to connect to the Google API client");
-			}
-			if (!result.HasResolution) {
-				GooglePlayServicesUtil.GetErrorDialog (result.ErrorCode, this, 0).Show ();
-				return;
-			}
-
-			if (!authInProgress) {
-				try
-				{
-					if (Log.IsLoggable (Tag, LogPriority.Info)) {
-						Log.Info (Tag, "Attempting to resolve failed connection");
+			// Create and connect the Google API client
+			googleApiClient = new GoogleApiClientBuilder (this)
+				.AddApi (FitnessClass.HISTORY_API)
+				.AddScope (FitnessClass.ScopeActivityRead)
+				.AddConnectionCallbacks (
+					// connection succeeded
+					connectionHint => {
+						if (Log.IsLoggable (Tag, LogPriority.Info)) {
+							Log.Info (Tag, "Connected to the Google API client");
+						}
+						// Get step data from Google Play Services
+						readSteps ();
+					},
+					// connection suspended
+					cause => {
+						if (Log.IsLoggable (Tag, LogPriority.Info)) {
+							Log.Info (Tag, "Connection suspended");
+						}
 					}
-					authInProgress = true;
-					result.StartResolutionForResult(this, OAUTH_REQUEST_CODE);
-				}
-				catch (IntentSender.SendIntentException e) {
-					if (Log.IsLoggable (Tag, LogPriority.Error)) {
-						Log.Error (Tag, "Exception while starting resolution activity", e);
-						authInProgress = false;
+				)
+				.AddOnConnectionFailedListener (
+					// connection failed
+					result => {
+						if (Log.IsLoggable (Tag, LogPriority.Info)) {
+							Log.Info (Tag, "Failed to connect to the Google API client");
+						}
+						if (!result.HasResolution) {
+							GoogleApiAvailability.Instance.GetErrorDialog (this, result.ErrorCode, 0).Show ();
+							return;
+						}
+
+						if (!authInProgress) {
+							try
+							{
+								if (Log.IsLoggable (Tag, LogPriority.Info)) {
+									Log.Info (Tag, "Attempting to resolve failed connection");
+								}
+								authInProgress = true;
+								result.StartResolutionForResult(this, OAUTH_REQUEST_CODE);
+							}
+							catch (IntentSender.SendIntentException e) {
+								if (Log.IsLoggable (Tag, LogPriority.Error)) {
+									Log.Error (Tag, "Exception while starting resolution activity", e);
+									authInProgress = false;
+								}
+							}
+						}
 					}
-				}
-			}
+				)
+				.Build ();
 		}
 
 	}
